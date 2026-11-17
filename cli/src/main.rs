@@ -5,7 +5,7 @@ mod protocol;
 mod status;
 
 use protocol::Path;
-use status::{ErrKind, Status};
+use status::{ErrKind, Stages, Status};
 use std::io;
 
 /// One request/response round trip. `Ok(None)` means no reply before the timeout.
@@ -15,7 +15,11 @@ pub(crate) type Exchange<'a> = dyn FnMut(&[u8]) -> io::Result<Option<Vec<u8>>> +
 fn run(mode: Path, exchange: &mut Exchange) -> Status {
     match battery_status(mode, exchange) {
         Status::Ok { mode, battery, charging, .. } => {
-            Status::Ok { mode, battery, charging, dpi: dpi::read_dpi(exchange) }
+            let (dpi, stages) = match dpi::read_stages(exchange) {
+                Some((d, st)) => (Some(d), st),
+                None => (None, Stages::NONE),
+            };
+            Status::Ok { mode, battery, charging, dpi, stages }
         }
         other => other,
     }
@@ -36,7 +40,7 @@ pub(crate) fn battery_status(mode: Path, exchange: &mut Exchange) -> Status {
     }
     match exchange(&protocol::battery_request()) {
         Ok(Some(r)) => match protocol::parse_battery(&r) {
-            Ok(b) => Status::Ok { mode, battery: b.battery, charging: b.charging, dpi: None },
+            Ok(b) => Status::Ok { mode, battery: b.battery, charging: b.charging, dpi: None, stages: Stages::NONE },
             Err(_) => Status::Error(ErrKind::Io),
         },
         Ok(None) => Status::Disconnected,
@@ -159,7 +163,7 @@ mod tests {
         let replies = [(0x03, Ok(Some(hex(ONLINE)))), (0x04, Ok(Some(hex(WIRELESS_30))))];
         let mut sent = vec![];
         let s = run(Path::Wireless, &mut serve(&replies, &mut sent));
-        assert_eq!(s, Status::Ok { mode: Path::Wireless, battery: 30, charging: false, dpi: None });
+        assert_eq!(s, Status::Ok { mode: Path::Wireless, battery: 30, charging: false, dpi: None, stages: Stages::NONE });
         assert_eq!(&sent[..2], &[0x03, 0x04]);
         assert!(sent[2..].iter().all(|&c| c == protocol::CMD_READ));
     }
@@ -168,7 +172,7 @@ mod tests {
     fn status_includes_dpi() {
         let mut m = dpi::fake::FakeMouse::new();
         let s = run(Path::Wireless, &mut |r| m.exchange(r));
-        assert_eq!(s, Status::Ok { mode: Path::Wireless, battery: 30, charging: false, dpi: Some(1200) });
+        assert_eq!(s, Status::Ok { mode: Path::Wireless, battery: 30, charging: false, dpi: Some(1200), stages: Stages::from_slice(&[800, 1200, 1600, 3200]) });
         assert!(m.writes().is_empty());
     }
 
@@ -177,7 +181,7 @@ mod tests {
         let replies = [(0x03, Ok(Some(hex(ONLINE)))), (0x04, Ok(Some(hex(WIRED_50))))];
         let mut sent = vec![];
         let s = run(Path::Wired, &mut serve(&replies, &mut sent));
-        assert_eq!(s, Status::Ok { mode: Path::Wired, battery: 50, charging: true, dpi: None });
+        assert_eq!(s, Status::Ok { mode: Path::Wired, battery: 50, charging: true, dpi: None, stages: Stages::NONE });
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 use crate::Exchange;
 use crate::protocol::Path;
-use crate::status::Status;
+use crate::status::{Stages, Status};
 use std::io;
 
 /// Bytes saved before the first write: header pairs + 8 stage records.
@@ -35,10 +35,31 @@ fn stage_addr(active: u16) -> u16 {
     STAGE_BASE + 4 * active
 }
 
-/// DPI of the active stage, or `None` if anything is missing or invalid.
-pub fn read_dpi(ex: &mut Exchange) -> Option<u16> {
-    let active = active_stage(&read(ex, ACTIVE_STAGE_ADDR, 2).ok()?)?;
-    decode_stage(&read(ex, stage_addr(active), 4).ok()?)
+const STAGE_COUNT_ADDR: u16 = 0x0002;
+
+/// Decode `count` stage records from consecutive bytes.
+fn decode_stages(bytes: &[u8], count: usize) -> Option<Stages> {
+    let v: Option<Vec<u16>> = bytes.chunks(4).take(count).map(decode_stage).collect();
+    v.filter(|v| v.len() == count).map(|v| Stages::from_slice(&v))
+}
+
+/// Count and active index from the header pairs at 0x0002..0x0006.
+fn header(pairs: &[u8]) -> Option<(usize, usize)> {
+    let count = decode_pair(pairs[0], pairs[1]).filter(|c| (1..=8).contains(c))? as usize;
+    let active = decode_pair(pairs[2], pairs[3]).filter(|a| (*a as usize) < count)? as usize;
+    Some((count, active))
+}
+
+/// Active stage's DPI and all stages, or `None` if anything is missing or invalid.
+pub fn read_stages(ex: &mut Exchange) -> Option<(u16, Stages)> {
+    let (count, active) = header(&read(ex, STAGE_COUNT_ADDR, 4).ok()?)?;
+    let total = (count * 4) as u16;
+    let mut bytes = Vec::with_capacity(total as usize);
+    for off in (0..total).step_by(8) {
+        bytes.extend(read(ex, STAGE_BASE + off, (total - off).min(8) as u8).ok()?);
+    }
+    let stages = decode_stages(&bytes, count)?;
+    Some((stages.as_slice()[active], stages))
 }
 
 /// Rewrite the active stage with `dpi` (already validated) and return the new status.
@@ -84,7 +105,15 @@ pub fn set_dpi(
         Err(_) => return Status::Error(ErrKind::Io),
     }
     match read(ex, addr, 4) {
-        Ok(back) if back == record => Status::Ok { mode, battery, charging, dpi: Some(dpi) },
+        Ok(back) if back == record => {
+            let stages = header(&image[STAGE_COUNT_ADDR as usize..])
+                .and_then(|(count, _)| {
+                    image[STAGE_BASE as usize + 4 * active as usize..][..4].copy_from_slice(&record);
+                    decode_stages(&image[STAGE_BASE as usize..], count)
+                })
+                .unwrap_or(Stages::NONE);
+            Status::Ok { mode, battery, charging, dpi: Some(dpi), stages }
+        }
         _ => Status::Error(ErrKind::WriteFailed),
     }
 }
@@ -173,21 +202,35 @@ mod tests {
     #[test]
     fn read_dpi_active_stage() {
         let mut m = FakeMouse::new();
-        assert_eq!(read_dpi(&mut |r| m.exchange(r)), Some(1200));
+        assert_eq!(read_stages(&mut |r| m.exchange(r)).map(|(d, _)| d), Some(1200));
+    }
+
+    #[test]
+    fn read_stages_all() {
+        let mut m = FakeMouse::new();
+        assert_eq!(read_stages(&mut |r| m.exchange(r)), Some((1200, Stages::from_slice(&[800, 1200, 1600, 3200]))));
+    }
+
+    #[test]
+    fn read_stages_bad_count_is_none() {
+        let mut m = FakeMouse::new();
+        m.eeprom[2] = 9;
+        m.eeprom[3] = 0x4c;
+        assert_eq!(read_stages(&mut |r| m.exchange(r)), None);
     }
 
     #[test]
     fn read_dpi_bad_record_is_none() {
         let mut m = FakeMouse::new();
         m.eeprom[0x13] ^= 1; // break stage 1 checksum
-        assert_eq!(read_dpi(&mut |r| m.exchange(r)), None);
+        assert_eq!(read_stages(&mut |r| m.exchange(r)), None);
     }
 
     #[test]
     fn dpi_writes_only_active_record() {
         let mut m = FakeMouse::new();
         let s = set_dpi(Path::Wireless, 1000, &mut |r| m.exchange(r), &mut no_backup());
-        assert_eq!(s, Status::Ok { mode: Path::Wireless, battery: 30, charging: false, dpi: Some(1000) });
+        assert_eq!(s, Status::Ok { mode: Path::Wireless, battery: 30, charging: false, dpi: Some(1000), stages: Stages::from_slice(&[800, 1000, 1600, 3200]) });
         let rec = crate::protocol::encode_stage(1000).unwrap();
         assert_eq!(m.writes(), vec![&write_request(0x0010, &rec)]);
         assert_eq!(&m.eeprom[0x10..0x14], &rec);
