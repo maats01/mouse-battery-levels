@@ -1,10 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Templates as T
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.kirigami as Kirigami
 import "logic.js" as L
 
-// Approved popup "B" (phase 1: battery only, no DPI section).
+// Approved popup "B" with the DPI slider "S3" (monochrome, dots at the other stages).
 Item {
     id: popup
 
@@ -14,11 +15,21 @@ Item {
 
     signal setDpi(int dpi)
 
-    function syncDpiField() {
-        dpiField.text = popup.view.dpi !== undefined ? String(popup.view.dpi) : ""
+    readonly property int currentDpi: view.dpi !== undefined ? view.dpi : 0
+    readonly property bool canEdit: L.canSetDpi(view, busy) && view.dpi !== undefined
+
+    // Keep slider and field on the mouse's value unless the user is interacting.
+    function syncDpi() {
+        if (!slider.pressed) slider.value = popup.currentDpi
+        if (!dpiField.visible) dpiField.text = String(popup.currentDpi)
     }
-    onViewChanged: if (!dpiField.activeFocus) syncDpiField()
-    onBusyChanged: if (!busy) syncDpiField()
+    onViewChanged: syncDpi()
+    onBusyChanged: if (!busy) syncDpi()
+
+    function applyDpi(n) {
+        if (n !== null && n !== popup.currentDpi) popup.setDpi(n)
+        else syncDpi()
+    }
 
     readonly property bool hasLevel: L.hasLevel(view)
     readonly property color dim: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
@@ -108,47 +119,137 @@ Item {
             }
         }
 
-        PlasmaComponents.Label {
-            visible: popup.hasLevel
-            Layout.topMargin: Kirigami.Units.largeSpacing
-            text: "DPI"
-            color: popup.dim
-            font.pointSize: Kirigami.Theme.smallFont.pointSize
-            font.capitalization: Font.AllUppercase
-            font.letterSpacing: 1
-        }
-
         RowLayout {
             visible: popup.hasLevel
             Layout.fillWidth: true
-            spacing: Kirigami.Units.largeSpacing
+            Layout.topMargin: Kirigami.Units.largeSpacing
 
-            PlasmaComponents.TextField {
-                id: dpiField
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 5
-                enabled: L.canSetDpi(popup.view, popup.busy)
-                horizontalAlignment: TextInput.AlignHCenter
-                inputMethodHints: Qt.ImhDigitsOnly
-                validator: RegularExpressionValidator { regularExpression: /[0-9]{0,5}/ }
-                font.features: { "tnum": 1 }
-                Component.onCompleted: popup.syncDpiField()
-                onAccepted: {
-                    const n = L.normalizeDpi(text)
-                    if (n === null) {
-                        popup.syncDpiField()
-                    } else {
-                        text = String(n)
-                        popup.setDpi(n)
-                    }
-                }
+            PlasmaComponents.Label {
+                text: "DPI"
+                color: popup.dim
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                font.capitalization: Font.AllUppercase
+                font.letterSpacing: 1
             }
 
             PlasmaComponents.Label {
                 Layout.fillWidth: true
+                horizontalAlignment: Text.AlignRight
                 text: popup.busy ? "aplicando…" : popup.message
                 color: popup.busy ? popup.dim : L.RED
                 font: Kirigami.Theme.smallFont
                 elide: Text.ElideRight
+            }
+
+            // Click the number to type a value; Enter applies, Esc cancels.
+            PlasmaComponents.Label {
+                id: dpiLabel
+                visible: !dpiField.visible
+                text: slider.pressed ? Math.round(slider.value) : (popup.view.dpi !== undefined ? popup.view.dpi : "––")
+                font.weight: Font.DemiBold
+                font.features: { "tnum": 1 }
+                opacity: popup.canEdit ? 1 : 0.6
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: popup.canEdit
+                    cursorShape: Qt.IBeamCursor
+                    onClicked: {
+                        dpiField.text = String(popup.currentDpi)
+                        dpiField.visible = true
+                        dpiField.forceActiveFocus()
+                        dpiField.selectAll()
+                    }
+                }
+            }
+
+            PlasmaComponents.TextField {
+                id: dpiField
+                visible: false
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 4
+                horizontalAlignment: TextInput.AlignRight
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator { regularExpression: /[0-9]{0,5}/ }
+                font.features: { "tnum": 1 }
+                onAccepted: {
+                    visible = false
+                    popup.applyDpi(L.normalizeDpi(text))
+                }
+                Keys.onEscapePressed: { visible = false; popup.syncDpi() }
+                onActiveFocusChanged: if (!activeFocus && visible) { visible = false; popup.syncDpi() }
+            }
+        }
+
+        T.Slider {
+            id: slider
+            visible: popup.hasLevel
+            enabled: popup.canEdit
+            Layout.fillWidth: true
+            Layout.topMargin: Kirigami.Units.smallSpacing
+            from: L.SLIDER_MIN
+            to: L.SLIDER_MAX
+            stepSize: L.SLIDER_STEP
+            snapMode: T.Slider.SnapAlways
+            implicitHeight: 18
+            Component.onCompleted: value = popup.currentDpi
+            onPressedChanged: if (!pressed) popup.applyDpi(Math.round(value))
+
+            readonly property color fg: Kirigami.Theme.textColor
+
+            background: Item {
+                x: slider.leftPadding
+                y: slider.topPadding + slider.availableHeight / 2 - 2
+                width: slider.availableWidth
+                height: 4
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 2
+                    color: Qt.rgba(slider.fg.r, slider.fg.g, slider.fg.b, 0.15)
+                }
+                Rectangle {
+                    width: 8 + slider.visualPosition * (parent.width - 16)
+                    height: parent.height
+                    radius: 2
+                    color: Qt.rgba(slider.fg.r, slider.fg.g, slider.fg.b, 0.85)
+                }
+                Repeater {
+                    model: L.otherStages(popup.view)
+                    Rectangle {
+                        x: 8 + L.sliderFraction(modelData) * (parent.width - 16) - 2
+                        y: 0
+                        width: 4
+                        height: 4
+                        radius: 2
+                        color: Qt.rgba(slider.fg.r, slider.fg.g, slider.fg.b, 0.45)
+                    }
+                }
+            }
+
+            handle: Rectangle {
+                x: slider.leftPadding + slider.visualPosition * (slider.availableWidth - width)
+                y: slider.topPadding + slider.availableHeight / 2 - height / 2
+                width: 16
+                height: 16
+                radius: 8
+                color: slider.fg
+                border.width: 3
+                border.color: Qt.rgba(slider.fg.r, slider.fg.g, slider.fg.b, 0.12)
+            }
+        }
+
+        Item {
+            visible: popup.hasLevel
+            Layout.fillWidth: true
+            implicitHeight: Kirigami.Units.gridUnit
+            Repeater {
+                model: L.otherStages(popup.view)
+                PlasmaComponents.Label {
+                    text: modelData
+                    color: popup.dim
+                    font.pointSize: Kirigami.Theme.smallFont.pointSize * 0.9
+                    font.features: { "tnum": 1 }
+                    x: Math.max(0, Math.min(parent.width - width,
+                        slider.leftPadding + L.sliderFraction(modelData) * (slider.availableWidth - 16) + 8 - width / 2))
+                }
             }
         }
     }

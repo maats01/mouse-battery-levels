@@ -36,7 +36,8 @@ function parse(stdout) {
             battery: clamp(o.battery),
             charging: o.charging === true,
             mode: o.mode === "wired" ? "wired" : "wireless",
-            dpi: typeof o.dpi === "number" ? o.dpi : undefined
+            dpi: typeof o.dpi === "number" ? o.dpi : undefined,
+            stages: validStages(o.stages)
         }
     }
     return { state: "error", error: "cli" }
@@ -57,6 +58,7 @@ function merge(prev, cur, now) {
             charging: false,
             mode: prev.mode,
             dpi: prev.dpi,
+            stages: prev.stages,
             lastOk: prev.lastOk
         }
     }
@@ -136,4 +138,31 @@ function dpiResultMessage(cur) {
     if (cur.state === "ok") return ""
     if (cur.state === "disconnected") return "Mexa o mouse e tente de novo"
     return tooltip(cur)
+}
+
+function validStages(a) {
+    if (!Array.isArray(a)) return []
+    for (var i = 0; i < a.length; i++) {
+        if (typeof a[i] !== "number") return []
+    }
+    return a.slice()
+}
+
+// Slider covers the user's stages; typed values may go beyond (50..10000).
+var SLIDER_MIN = 400
+var SLIDER_MAX = 3200
+var SLIDER_STEP = 50
+
+function sliderFraction(dpi) {
+    var f = (dpi - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)
+    return Math.max(0, Math.min(1, f))
+}
+
+// Stages other than the active one (one match of the current DPI removed),
+// limited to the slider range: drawn as dots on the track.
+function otherStages(v) {
+    var st = (v.stages || []).slice()
+    var i = st.indexOf(v.dpi)
+    if (i >= 0) st.splice(i, 1)
+    return st.filter(function (d) { return d >= SLIDER_MIN && d <= SLIDER_MAX })
 }

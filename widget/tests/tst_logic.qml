@@ -185,6 +185,39 @@ TestCase {
         compare(L.tooltip({state: "error", error: "write_failed"}), "Não foi possível mudar o DPI")
     }
 
+    function test_parse_stages() {
+        const s = L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":1200,"stages":[800,1200,1600,3200]}')
+        compare(s.stages, [800, 1200, 1600, 3200])
+        compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false}').stages, [])
+        compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"stages":[1,"x"]}').stages, [])
+    }
+
+    function test_merge_asleep_keeps_stages() {
+        const prev = L.merge(null, L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":1200,"stages":[800,1200]}'), 1)
+        compare(L.merge(prev, L.parse('{"connected":false}'), 2).stages, [800, 1200])
+    }
+
+    function test_slider_range() {
+        compare(L.SLIDER_MIN, 400)
+        compare(L.SLIDER_MAX, 3200)
+        compare(L.SLIDER_STEP, 50)
+    }
+
+    function test_slider_fraction() {
+        compare(L.sliderFraction(400), 0)
+        compare(L.sliderFraction(3200), 1)
+        compare(L.sliderFraction(1800), 0.5)
+        compare(L.sliderFraction(100), 0)
+        compare(L.sliderFraction(9000), 1)
+    }
+
+    function test_other_stages() {
+        compare(L.otherStages({dpi: 1200, stages: [800, 1200, 1600, 3200]}), [800, 1600, 3200])
+        compare(L.otherStages({dpi: 1000, stages: [800, 1000, 1000, 3200]}), [800, 1000, 3200])
+        compare(L.otherStages({dpi: 1200, stages: [100, 1200, 5000]}), [])
+        compare(L.otherStages({dpi: 1200}), [])
+    }
+
     function test_refresh_ms() {
         compare(L.REFRESH_MS, 60000)
     }
