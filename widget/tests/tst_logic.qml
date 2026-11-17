@@ -105,6 +105,13 @@ TestCase {
         compare(L.tooltip({state: "ok", battery: 50, charging: true}), "VXE R1 — 50% · carregando")
     }
 
+    function test_connection_text() {
+        compare(L.connectionText({state: "ok", mode: "wireless", charging: false}), "2.4 GHz")
+        compare(L.connectionText({state: "asleep", mode: "wireless", charging: false}), "2.4 GHz")
+        compare(L.connectionText({state: "ok", mode: "wired", charging: true}), "cabo")
+        compare(L.connectionText({state: "ok", mode: "wired", charging: false}), "cabo")
+    }
+
     function test_state_text() {
         compare(L.stateText({state: "ok", charging: true}), "carregando")
         compare(L.stateText({state: "ok", charging: false}), "descarregando")

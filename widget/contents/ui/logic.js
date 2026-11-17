@@ -95,3 +95,7 @@ function stateText(v) {
     if (!hasLevel(v)) return ""
     return v.charging ? "carregando" : "descarregando"
 }
+
+function connectionText(v) {
+    return v.mode === "wired" ? "cabo" : "2.4 GHz"
+}

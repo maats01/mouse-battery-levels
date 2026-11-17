@@ -42,8 +42,7 @@ Item {
                     font.weight: Font.DemiBold
                 }
                 PlasmaComponents.Label {
-                    visible: !popup.hasLevel
-                    text: L.tooltip(popup.view)
+                    text: popup.hasLevel ? L.connectionText(popup.view) : L.tooltip(popup.view)
                     color: popup.dim
                     font: Kirigami.Theme.smallFont
                 }
