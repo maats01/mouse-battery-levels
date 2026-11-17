@@ -60,6 +60,23 @@ TestCase {
         compare(L.merge(prev, L.parse('{"error":"no_receiver"}'), 2000).state, "error")
     }
 
+    function test_merge_transient_error_keeps_level() {
+        const prev = L.merge(null, L.parse('{"connected":true,"mode":"wireless","battery":82,"charging":false}'), 1000)
+        for (const raw of ['{"error":"io"}', "", "oops"]) {
+            const v = L.merge(prev, L.parse(raw), 2000)
+            compare(v.state, "asleep", raw)
+            compare(v.battery, 82, raw)
+        }
+    }
+
+    function test_next_delay_retries_fast_after_error() {
+        compare(L.nextDelay({state: "error", error: "no_receiver"}), 3000)
+        compare(L.nextDelay({state: "error", error: "io"}), 3000)
+        compare(L.nextDelay({state: "ok", battery: 50}), 60000)
+        compare(L.nextDelay({state: "asleep", battery: 50}), 60000)
+        compare(L.nextDelay({state: "disconnected"}), 60000)
+    }
+
     function test_level_color() {
         compare(L.levelColor(100), "#3ccf7a")
         compare(L.levelColor(40), "#3ccf7a")

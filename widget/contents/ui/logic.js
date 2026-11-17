@@ -3,6 +3,7 @@
 // Pure helpers for the VXE R1 widget. No QML types here, so tests can import it.
 
 var REFRESH_MS = 60000
+var RETRY_MS = 3000
 
 var GREEN = "#3ccf7a"
 var YELLOW = "#f0b429"
@@ -46,7 +47,9 @@ function merge(prev, cur, now) {
     if (cur.state === "ok") {
         return Object.assign({}, cur, { lastOk: now })
     }
-    if (cur.state === "disconnected" && prev && hasLevel(prev)) {
+    var transient = cur.state === "disconnected"
+        || (cur.state === "error" && (cur.error === "io" || cur.error === "cli"))
+    if (transient && prev && hasLevel(prev)) {
         return {
             state: "asleep",
             battery: prev.battery,
@@ -98,4 +101,9 @@ function stateText(v) {
 
 function connectionText(v) {
     return v.mode === "wired" ? "cabo" : "2.4 GHz"
+}
+
+// After an error (e.g. cable moving between receiver and mouse) retry soon.
+function nextDelay(v) {
+    return v.state === "error" ? RETRY_MS : REFRESH_MS
 }

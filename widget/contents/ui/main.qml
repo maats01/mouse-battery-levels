@@ -32,11 +32,15 @@ PlasmoidItem {
         onNewData: (source, data) => {
             disconnectSource(source)
             root.now = Date.now()
-            root.view = L.merge(root.view, L.parse(data["stdout"]), root.now)
+            const cur = L.parse(data["stdout"])
+            root.view = L.merge(root.view, cur, root.now)
+            poll.interval = L.nextDelay(cur)
+            poll.restart()
         }
     }
 
     Timer {
+        id: poll
         interval: L.REFRESH_MS
         running: true
         repeat: true
