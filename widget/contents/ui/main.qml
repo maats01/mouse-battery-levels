@@ -86,6 +86,5 @@ PlasmoidItem {
 
     fullRepresentation: Popup {
         view: root.view
-        now: root.now
     }
 }

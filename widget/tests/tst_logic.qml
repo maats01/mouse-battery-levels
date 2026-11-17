@@ -121,14 +121,6 @@ TestCase {
         compare(L.stateText({state: "error"}), "")
     }
 
-    function test_updated_text() {
-        compare(L.updatedText(0), "atualizado agora")
-        compare(L.updatedText(59999), "atualizado agora")
-        compare(L.updatedText(60000), "atualizado há 1 min")
-        compare(L.updatedText(180000), "atualizado há 3 min")
-        compare(L.updatedText(7200000), "atualizado há 120 min")
-    }
-
     function test_refresh_ms() {
         compare(L.REFRESH_MS, 60000)
     }

@@ -9,7 +9,6 @@ Item {
     id: popup
 
     property var view
-    property double now
 
     readonly property bool hasLevel: L.hasLevel(view)
     readonly property color dim: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
@@ -91,12 +90,6 @@ Item {
             Layout.fillWidth: true
             PlasmaComponents.Label {
                 text: L.stateText(popup.view)
-                color: popup.dim
-                font: Kirigami.Theme.smallFont
-            }
-            Item { Layout.fillWidth: true }
-            PlasmaComponents.Label {
-                text: popup.view.lastOk ? L.updatedText(popup.now - popup.view.lastOk) : ""
                 color: popup.dim
                 font: Kirigami.Theme.smallFont
             }

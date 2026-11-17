@@ -101,8 +101,3 @@ function stateText(v) {
     if (!hasLevel(v)) return ""
     return v.charging ? "carregando" : "descarregando"
 }
-
-function updatedText(msAgo) {
-    var min = Math.floor(msAgo / 60000)
-    return min < 1 ? "atualizado agora" : "atualizado há " + min + " min"
-}
