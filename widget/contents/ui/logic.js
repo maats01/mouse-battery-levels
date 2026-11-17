@@ -35,7 +35,8 @@ function parse(stdout) {
             state: "ok",
             battery: clamp(o.battery),
             charging: o.charging === true,
-            mode: o.mode === "wired" ? "wired" : "wireless"
+            mode: o.mode === "wired" ? "wired" : "wireless",
+            dpi: typeof o.dpi === "number" ? o.dpi : undefined
         }
     }
     return { state: "error", error: "cli" }
@@ -55,6 +56,7 @@ function merge(prev, cur, now) {
             battery: prev.battery,
             charging: false,
             mode: prev.mode,
+            dpi: prev.dpi,
             lastOk: prev.lastOk
         }
     }
@@ -90,6 +92,7 @@ function tooltip(v) {
     }
     if (v.error === "no_receiver") return "Receptor não encontrado"
     if (v.error === "permission") return "Sem permissão — rode install.sh"
+    if (v.error === "write_failed") return "Não foi possível mudar o DPI"
     return "Erro ao ler o mouse"
 }
 
@@ -106,4 +109,31 @@ function connectionText(v) {
 // After an error (e.g. cable moving between receiver and mouse) retry soon.
 function nextDelay(v) {
     return v.state === "error" ? RETRY_MS : REFRESH_MS
+}
+
+var DPI_MIN = 50
+var DPI_MAX = 10000
+
+// Typed text -> DPI the sensor accepts (multiple of 50 in 50..10000), or null.
+function normalizeDpi(text) {
+    var t = String(text).trim()
+    if (!/^[0-9]+$/.test(t)) return null
+    var n = Math.round(parseInt(t, 10) / 50) * 50
+    return Math.max(DPI_MIN, Math.min(DPI_MAX, n))
+}
+
+function dpiCommand(dpi) {
+    if (dpi === null || normalizeDpi(String(dpi)) !== dpi) return ""
+    return '"$HOME/.local/bin/vxe" dpi ' + dpi
+}
+
+function canSetDpi(v, busy) {
+    return !busy && hasLevel(v)
+}
+
+// Message under the DPI field after a `vxe dpi` run ("" on success).
+function dpiResultMessage(cur) {
+    if (cur.state === "ok") return ""
+    if (cur.state === "disconnected") return "Mexa o mouse e tente de novo"
+    return tooltip(cur)
 }

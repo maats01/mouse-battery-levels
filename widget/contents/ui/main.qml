@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import org.kde.plasma.plasmoid
-import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.components as PlasmaComponents
 import org.kde.plasma.plasma5support as P5Support
 import org.kde.kirigami as Kirigami
@@ -13,11 +12,21 @@ PlasmoidItem {
     // Current view: {state, battery, charging, mode, error, lastOk}.
     property var view: ({ state: "disconnected" })
     property double now: Date.now()
+    property bool dpiBusy: false
+    property string dpiMessage: ""
 
     readonly property string command: '"$HOME/.local/bin/vxe" status'
 
     toolTipMainText: L.tooltip(view)
     Plasmoid.icon: "input-mouse"
+
+    function setDpi(n) {
+        const cmd = L.dpiCommand(n)
+        if (!L.canSetDpi(view, dpiBusy) || cmd === "") return
+        dpiBusy = true
+        dpiMessage = ""
+        exec.connectSource(cmd)
+    }
 
     function refresh() {
         if (!exec.connectedSources.includes(command)) {
@@ -33,6 +42,13 @@ PlasmoidItem {
             disconnectSource(source)
             root.now = Date.now()
             const cur = L.parse(data["stdout"])
+            if (source !== root.command) {
+                // Result of `vxe dpi N`.
+                root.dpiBusy = false
+                root.dpiMessage = L.dpiResultMessage(cur)
+                if (cur.state === "ok") root.view = L.merge(root.view, cur, root.now)
+                return
+            }
             root.view = L.merge(root.view, cur, root.now)
             poll.interval = L.nextDelay(cur)
             poll.restart()
@@ -90,5 +106,8 @@ PlasmoidItem {
 
     fullRepresentation: Popup {
         view: root.view
+        busy: root.dpiBusy
+        message: root.dpiMessage
+        onSetDpi: dpi => root.setDpi(dpi)
     }
 }

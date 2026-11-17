@@ -9,6 +9,16 @@ Item {
     id: popup
 
     property var view
+    property bool busy: false
+    property string message: ""
+
+    signal setDpi(int dpi)
+
+    function syncDpiField() {
+        dpiField.text = popup.view.dpi !== undefined ? String(popup.view.dpi) : ""
+    }
+    onViewChanged: if (!dpiField.activeFocus) syncDpiField()
+    onBusyChanged: if (!busy) syncDpiField()
 
     readonly property bool hasLevel: L.hasLevel(view)
     readonly property color dim: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
@@ -92,6 +102,50 @@ Item {
                 text: L.stateText(popup.view)
                 color: popup.dim
                 font: Kirigami.Theme.smallFont
+            }
+        }
+
+        PlasmaComponents.Label {
+            visible: popup.hasLevel
+            Layout.topMargin: Kirigami.Units.largeSpacing
+            text: "DPI"
+            color: popup.dim
+            font.pointSize: Kirigami.Theme.smallFont.pointSize
+            font.capitalization: Font.AllUppercase
+            font.letterSpacing: 1
+        }
+
+        RowLayout {
+            visible: popup.hasLevel
+            Layout.fillWidth: true
+            spacing: Kirigami.Units.largeSpacing
+
+            PlasmaComponents.TextField {
+                id: dpiField
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 5
+                enabled: L.canSetDpi(popup.view, popup.busy)
+                horizontalAlignment: TextInput.AlignHCenter
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator { regularExpression: /[0-9]{0,5}/ }
+                font.features: { "tnum": 1 }
+                Component.onCompleted: popup.syncDpiField()
+                onAccepted: {
+                    const n = L.normalizeDpi(text)
+                    if (n === null) {
+                        popup.syncDpiField()
+                    } else {
+                        text = String(n)
+                        popup.setDpi(n)
+                    }
+                }
+            }
+
+            PlasmaComponents.Label {
+                Layout.fillWidth: true
+                text: popup.busy ? "aplicando…" : popup.message
+                color: popup.busy ? popup.dim : L.RED
+                font: Kirigami.Theme.smallFont
+                elide: Text.ElideRight
             }
         }
     }

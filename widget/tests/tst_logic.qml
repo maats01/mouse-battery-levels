@@ -136,6 +136,55 @@ TestCase {
         compare(L.stateText({state: "error"}), "")
     }
 
+    function test_parse_dpi() {
+        compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":1200}').dpi, 1200)
+        compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false}').dpi, undefined)
+        compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":"x"}').dpi, undefined)
+    }
+
+    function test_merge_asleep_keeps_dpi() {
+        const prev = L.merge(null, L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":400}'), 1)
+        compare(L.merge(prev, L.parse('{"connected":false}'), 2).dpi, 400)
+    }
+
+    function test_normalize_dpi() {
+        compare(L.normalizeDpi("1200"), 1200)
+        compare(L.normalizeDpi(" 1234 "), 1250)
+        compare(L.normalizeDpi("1225"), 1250)
+        compare(L.normalizeDpi("1224"), 1200)
+        compare(L.normalizeDpi("20"), 50)
+        compare(L.normalizeDpi("99999"), 10000)
+        for (const bad of ["", "  ", "abc", "1;rm -rf", "12.5", "-400"]) {
+            compare(L.normalizeDpi(bad), null, bad)
+        }
+    }
+
+    function test_dpi_command() {
+        compare(L.dpiCommand(1200), '"$HOME/.local/bin/vxe" dpi 1200')
+        compare(L.dpiCommand(null), "")
+        compare(L.dpiCommand(1234), "")
+    }
+
+    function test_dpi_busy_blocks() {
+        const v = {state: "ok", battery: 45}
+        compare(L.canSetDpi(v, false), true)
+        compare(L.canSetDpi(v, true), false)
+        compare(L.canSetDpi({state: "asleep", battery: 45}, false), true)
+        compare(L.canSetDpi({state: "disconnected"}, false), false)
+        compare(L.canSetDpi({state: "error", error: "io"}, false), false)
+    }
+
+    function test_dpi_result_message() {
+        compare(L.dpiResultMessage(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":800}')), "")
+        compare(L.dpiResultMessage(L.parse('{"connected":false}')), "Mexa o mouse e tente de novo")
+        compare(L.dpiResultMessage(L.parse('{"error":"write_failed"}')), "Não foi possível mudar o DPI")
+        compare(L.dpiResultMessage(L.parse("")), "Erro ao ler o mouse")
+    }
+
+    function test_tooltip_write_failed() {
+        compare(L.tooltip({state: "error", error: "write_failed"}), "Não foi possível mudar o DPI")
+    }
+
     function test_refresh_ms() {
         compare(L.REFRESH_MS, 60000)
     }
