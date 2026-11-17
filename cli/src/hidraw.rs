@@ -1,6 +1,6 @@
 //! Minimal hidraw I/O: one open node, write a report, wait for the matching reply.
 
-use crate::protocol::is_reply_to;
+use crate::protocol::reply_matches;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
@@ -44,10 +44,9 @@ impl Hidraw {
         Ok(r > 0)
     }
 
-    /// Send `req` and return the first reply to the same command, or `None` on timeout.
+    /// Send `req` and return the first reply that answers it, or `None` on timeout.
     /// Unrelated reports (e.g. unsolicited events) are skipped.
     pub fn exchange(&mut self, req: &[u8], timeout: Duration) -> io::Result<Option<Vec<u8>>> {
-        let cmd = req[1];
         let mut buf = [0u8; 64];
         // Drop stale reports queued before our request.
         while let Ok(n) = self.file.read(&mut buf) {
@@ -66,7 +65,7 @@ impl Hidraw {
                 continue;
             }
             match self.file.read(&mut buf) {
-                Ok(n) if is_reply_to(cmd, &buf[..n]) => return Ok(Some(buf[..n].to_vec())),
+                Ok(n) if reply_matches(req, &buf[..n]) => return Ok(Some(buf[..n].to_vec())),
                 Ok(_) => continue,
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => continue,
                 Err(e) => return Err(e),

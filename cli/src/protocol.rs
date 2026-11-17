@@ -120,6 +120,15 @@ pub fn is_write_echo(req: &[u8], resp: &[u8]) -> bool {
     resp.len() >= FRAME_LEN && resp[..FRAME_LEN] == req[..FRAME_LEN]
 }
 
+/// Whether `resp` answers `req`: writes by exact echo, reads by command and address.
+pub fn reply_matches(req: &[u8], resp: &[u8]) -> bool {
+    match req[1] {
+        CMD_WRITE => is_write_echo(req, resp),
+        CMD_READ => is_reply_to(CMD_READ, resp) && resp.len() >= 5 && resp[3..5] == req[3..5],
+        cmd => is_reply_to(cmd, resp),
+    }
+}
+
 /// PAW3395SE stage codes: 1..=235, skipping these (docs/protocol.md).
 const SKIPPED_CODES: [u8; 35] = [
     7, 13, 20, 26, 33, 40, 46, 53, 60, 66, 73, 80, 86, 93, 100, 106, 113, 120, 126, 133, 140,
@@ -299,6 +308,18 @@ mod tests {
         let other = write_request(0x0010, &[0x12, 0x12, 0x00, 0x31]);
         assert!(!is_write_echo(&req, &other));
         assert!(!is_write_echo(&req, &req[..5]));
+    }
+
+    #[test]
+    fn reply_matches_by_kind() {
+        let rd = read_request(0x000c, 10);
+        assert!(reply_matches(&rd, &hex(EE_000C)));
+        assert!(!reply_matches(&read_request(0x0000, 10), &hex(EE_000C)));
+        let wr = write_request(0x0010, &[0x1c, 0x1c, 0x00, 0x1d]);
+        assert!(reply_matches(&wr, &wr));
+        assert!(!reply_matches(&wr, &write_request(0x0014, &[0x1c, 0x1c, 0x00, 0x1d])));
+        assert!(reply_matches(&battery_request(), &hex(WIRELESS_30)));
+        assert!(!reply_matches(&battery_request(), &hex(ONLINE)));
     }
 
     #[test]
