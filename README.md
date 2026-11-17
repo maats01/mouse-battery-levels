@@ -121,3 +121,7 @@ A estrutura é esta:
 ## Créditos
 
 O protocolo foi entendido a partir das notas públicas do [atk-control](https://github.com/NasirA1991/atk-control) e do [OpenVXE](https://github.com/FrancescoLFM/OpenVXE), e depois verificado no hardware.
+
+## Licença
+
+[MIT](LICENSE).
