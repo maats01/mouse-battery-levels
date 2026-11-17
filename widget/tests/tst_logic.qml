@@ -129,13 +129,6 @@ TestCase {
         compare(L.connectionText({state: "ok", mode: "wired", charging: false}), "cabo")
     }
 
-    function test_state_text() {
-        compare(L.stateText({state: "ok", charging: true}), "carregando")
-        compare(L.stateText({state: "ok", charging: false}), "descarregando")
-        compare(L.stateText({state: "asleep", charging: false}), "descarregando")
-        compare(L.stateText({state: "error"}), "")
-    }
-
     function test_parse_dpi() {
         compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":1200}').dpi, 1200)
         compare(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false}').dpi, undefined)

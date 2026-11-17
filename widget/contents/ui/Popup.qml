@@ -112,16 +112,6 @@ Item {
         RowLayout {
             visible: popup.hasLevel
             Layout.fillWidth: true
-            PlasmaComponents.Label {
-                text: L.stateText(popup.view)
-                color: popup.dim
-                font: Kirigami.Theme.smallFont
-            }
-        }
-
-        RowLayout {
-            visible: popup.hasLevel
-            Layout.fillWidth: true
             Layout.topMargin: Kirigami.Units.largeSpacing
 
             PlasmaComponents.Label {
