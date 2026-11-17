@@ -84,12 +84,8 @@ PlasmoidItem {
         }
     }
 
-    fullRepresentation: Item {
-        Layout.preferredWidth: Kirigami.Units.gridUnit * 14
-        Layout.preferredHeight: Kirigami.Units.gridUnit * 6
-        PlasmaComponents.Label {
-            anchors.centerIn: parent
-            text: L.tooltip(root.view)
-        }
+    fullRepresentation: Popup {
+        view: root.view
+        now: root.now
     }
 }
