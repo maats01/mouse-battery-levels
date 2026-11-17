@@ -180,8 +180,19 @@ Item {
             stepSize: L.SLIDER_STEP
             snapMode: T.Slider.SnapAlways
             implicitHeight: 18
+            // Mouse only: arrow keys would write the EEPROM on every press.
+            focusPolicy: Qt.NoFocus
+            property real pressValue: 0
             Component.onCompleted: value = popup.currentDpi
-            onPressedChanged: if (!pressed) popup.applyDpi(Math.round(value))
+            onPressedChanged: {
+                if (pressed) {
+                    pressValue = value
+                    return
+                }
+                const n = L.sliderTarget(pressValue, value)
+                if (n === null) popup.syncDpi()
+                else popup.setDpi(n)
+            }
 
             readonly property color fg: Kirigami.Theme.textColor
 

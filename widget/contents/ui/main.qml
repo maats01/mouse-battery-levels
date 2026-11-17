@@ -13,6 +13,7 @@ PlasmoidItem {
     property var view: ({ state: "disconnected" })
     property double now: Date.now()
     property bool dpiBusy: false
+    property var pendingDpi: null
     property string dpiMessage: ""
 
     readonly property string command: '"$HOME/.local/bin/vxe" status'
@@ -23,12 +24,19 @@ PlasmoidItem {
     function setDpi(n) {
         const cmd = L.dpiCommand(n)
         if (!L.canSetDpi(view, dpiBusy) || cmd === "") return
+        // A status run may still be in flight: wait for it before writing.
+        if (exec.connectedSources.includes(command)) {
+            pendingDpi = n
+            return
+        }
         dpiBusy = true
         dpiMessage = ""
         exec.connectSource(cmd)
     }
 
     function refresh() {
+        // Never talk to the mouse from two processes at once.
+        if (dpiBusy) return
         if (!exec.connectedSources.includes(command)) {
             exec.connectSource(command)
         }
@@ -49,11 +57,18 @@ PlasmoidItem {
                 if (cur.state === "ok") root.view = L.merge(root.view, cur, root.now)
                 root.dpiMessage = L.dpiResultMessage(cur)
                 root.dpiBusy = false
+                // Re-read: confirms the value even if the write's echo was lost.
+                if (cur.state !== "ok") root.refresh()
                 return
             }
             root.view = L.merge(root.view, cur, root.now)
             poll.interval = L.nextDelay(cur)
             poll.restart()
+            if (root.pendingDpi !== null) {
+                const n = root.pendingDpi
+                root.pendingDpi = null
+                root.setDpi(n)
+            }
         }
     }
 

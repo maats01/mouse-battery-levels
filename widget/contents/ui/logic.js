@@ -162,3 +162,10 @@ function otherStages(v) {
     if (i >= 0) st.splice(i, 1)
     return st.filter(function (d) { return d >= SLIDER_MIN && d <= SLIDER_MAX })
 }
+
+// DPI to apply when the slider is released: only if it moved during the press
+// (a plain click on a clamped handle must not write anything).
+function sliderTarget(pressValue, releaseValue) {
+    var a = Math.round(pressValue), b = Math.round(releaseValue / SLIDER_STEP) * SLIDER_STEP
+    return a === b ? null : b
+}

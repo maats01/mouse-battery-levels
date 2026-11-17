@@ -211,6 +211,13 @@ TestCase {
         compare(L.otherStages({dpi: 1200}), [])
     }
 
+    function test_slider_target_only_when_moved() {
+        compare(L.sliderTarget(1200, 1200), null)
+        compare(L.sliderTarget(3200, 3200), null) // click on a clamped handle (DPI 5000)
+        compare(L.sliderTarget(1200, 1500), 1500)
+        compare(L.sliderTarget(1200, 1499.6), 1500)
+    }
+
     function test_refresh_ms() {
         compare(L.REFRESH_MS, 60000)
     }
