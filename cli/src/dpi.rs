@@ -9,7 +9,7 @@ use std::io;
 pub const BACKUP_LEN: u16 = 0x2c;
 
 use crate::protocol::{
-    ACTIVE_STAGE_ADDR, STAGE_BASE, decode_pair, decode_stage, encode_stage, is_write_echo,
+    STAGE_BASE, decode_pair, decode_stage, encode_stage, is_write_echo,
     parse_read, read_request, write_request,
 };
 use crate::status::ErrKind;
@@ -25,10 +25,6 @@ fn read(ex: &mut Exchange, addr: u16, len: u8) -> Result<Vec<u8>, Fail> {
         Ok(None) => Err(Fail::Timeout),
         Err(_) => Err(Fail::Io),
     }
-}
-
-fn active_stage(pair: &[u8]) -> Option<u16> {
-    decode_pair(pair[0], pair[1]).filter(|a| *a < 8).map(u16::from)
 }
 
 fn stage_addr(active: u16) -> u16 {
@@ -87,9 +83,14 @@ pub fn set_dpi(
             Err(f) => return fail(f),
         }
     }
-    let Some(active) = active_stage(&image[ACTIVE_STAGE_ADDR as usize..]) else {
+    // Refuse to write unless the header and every stage record are valid.
+    let Some((count, active)) = header(&image[STAGE_COUNT_ADDR as usize..]) else {
         return Status::Error(ErrKind::Io);
     };
+    if decode_stages(&image[STAGE_BASE as usize..], count).is_none() {
+        return Status::Error(ErrKind::Io);
+    }
+    let active = active as u16;
     let Some(record) = encode_stage(dpi) else {
         return Status::Error(ErrKind::Io);
     };
@@ -106,12 +107,8 @@ pub fn set_dpi(
     }
     match read(ex, addr, 4) {
         Ok(back) if back == record => {
-            let stages = header(&image[STAGE_COUNT_ADDR as usize..])
-                .and_then(|(count, _)| {
-                    image[STAGE_BASE as usize + 4 * active as usize..][..4].copy_from_slice(&record);
-                    decode_stages(&image[STAGE_BASE as usize..], count)
-                })
-                .unwrap_or(Stages::NONE);
+            image[stage_addr(active) as usize..][..4].copy_from_slice(&record);
+            let stages = decode_stages(&image[STAGE_BASE as usize..], count).unwrap_or(Stages::NONE);
             Status::Ok { mode, battery, charging, dpi: Some(dpi), stages }
         }
         _ => Status::Error(ErrKind::WriteFailed),
@@ -286,6 +283,35 @@ mod tests {
         m.apply_writes = false; // echoes, but the EEPROM keeps 1200
         let s = set_dpi(Path::Wireless, 1000, &mut |r| m.exchange(r), &mut no_backup());
         assert_eq!(s, Status::Error(ErrKind::WriteFailed));
+    }
+
+    fn assert_refused(m: &mut FakeMouse) {
+        let s = set_dpi(Path::Wireless, 1000, &mut |r| m.exchange(r), &mut no_backup());
+        assert_eq!(s, Status::Error(ErrKind::Io));
+        assert!(m.writes().is_empty());
+    }
+
+    #[test]
+    fn dpi_invalid_stage_count_writes_nothing() {
+        let mut m = FakeMouse::new();
+        m.eeprom[2] = 9; // count 9 (> 8), valid complement
+        m.eeprom[3] = 0x4c;
+        assert_refused(&mut m);
+    }
+
+    #[test]
+    fn dpi_active_beyond_count_writes_nothing() {
+        let mut m = FakeMouse::new();
+        m.eeprom[4] = 5; // active 5 with only 4 stages
+        m.eeprom[5] = 0x50;
+        assert_refused(&mut m);
+    }
+
+    #[test]
+    fn dpi_bad_active_record_writes_nothing() {
+        let mut m = FakeMouse::new();
+        m.eeprom[0x13] ^= 1; // active stage (1) checksum broken
+        assert_refused(&mut m);
     }
 
     #[test]

@@ -75,7 +75,6 @@ pub fn parse_battery(resp: &[u8]) -> Result<Reading, ParseError> {
 
 pub const CMD_WRITE: u8 = 0x07;
 pub const CMD_READ: u8 = 0x08;
-pub const ACTIVE_STAGE_ADDR: u16 = 0x0004;
 pub const STAGE_BASE: u16 = 0x000c;
 
 fn frame_with(cmd: u8, addr: u16, len: u8, data: &[u8]) -> Vec<u8> {
