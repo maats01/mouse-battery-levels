@@ -24,8 +24,11 @@ Item {
     readonly property color dim: Qt.rgba(Kirigami.Theme.textColor.r, Kirigami.Theme.textColor.g,
                                          Kirigami.Theme.textColor.b, 0.6)
 
+    // Plasma 6 remembers popup sizes; a minimum makes it grow to fit the content.
+    Layout.minimumWidth: Kirigami.Units.gridUnit * 16
     Layout.preferredWidth: Kirigami.Units.gridUnit * 16
-    Layout.preferredHeight: col.implicitHeight + Kirigami.Units.largeSpacing * 2
+    Layout.minimumHeight: col.implicitHeight + Kirigami.Units.largeSpacing * 2
+    Layout.preferredHeight: Layout.minimumHeight
 
     ColumnLayout {
         id: col

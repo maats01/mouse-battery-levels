@@ -64,7 +64,7 @@ PlasmoidItem {
         onTriggered: root.refresh()
     }
 
-    onExpandedChanged: if (expanded) refresh()
+    onExpandedChanged: () => { if (root.expanded) root.refresh() }
 
     compactRepresentation: MouseArea {
         id: compact
