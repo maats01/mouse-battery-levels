@@ -4,7 +4,7 @@
 
 **Goal:** Trocar o DPI do mouse pelo popup, regravando o valor do estágio ativo, e mostrar o DPI atual.
 
-**Architecture:** A CLI ganha leitura/escrita de EEPROM (cmds `0x08`/`0x07`), a tabela de DPI do sensor, `vxe dpi <valor>` e o campo `dpi` em `vxe status`. O widget ganha uma seção DPI com botões de valores fixos que chama `vxe dpi N`.
+**Architecture:** A CLI ganha leitura/escrita de EEPROM (cmds `0x08`/`0x07`), a tabela de DPI do sensor, `vxe dpi <valor>` e o campo `dpi` em `vxe status`. O widget ganha uma seção DPI com um campo de texto que chama `vxe dpi N` ao apertar Enter.
 
 **Tech Stack:** igual à fase 1 (Rust só `std`, QML Plasma 6, `qmltestrunner`).
 
@@ -17,7 +17,7 @@
 - Antes da primeira gravação: salvar `0x0000..0x002b` (estágios e cabeçalho) em `$XDG_STATE_HOME/vxe/backup.hex` (padrão `~/.local/state/vxe/backup.hex`), **só se o arquivo não existir**.
 - Toda gravação: esperar o eco (timeout 500 ms), depois ler o registro de volta e comparar. Divergência → `{"error":"write_failed"}`, saída 1.
 - DPI aceito: 50–10 000, múltiplo de 50 (codificação de tabela, `ex = 0`). Fora disso → uso no stderr, saída 2, nada enviado.
-- Valores do seletor no popup: **400 / 800 / 1200 / 1600 / 3200** (chamada do Claude). O ativo é destacado quando `dpi` bate com um deles.
+- Popup: **campo de texto** para digitar o DPI (pedido do usuário). Mostra o DPI atual; Enter aplica. Valor digitado é arredondado ao múltiplo de 50 mais próximo e limitado a 50–10 000 antes de chamar a CLI; após gravar, o campo mostra o valor aplicado.
 - Botão do mouse continua trocando de estágio; o app nunca muda o índice do estágio ativo.
 
 ## Review Focus
@@ -25,7 +25,7 @@
 1. **Mouse dorme entre o `0x03` e a gravação.** Esperado: timeout no eco → `write_failed`, sem gravação parcial assumida como ok. Teste: Task 2 `dpi_echo_timeout_is_write_failed`.
 2. **Registro do estágio ativo com checksum inválido na leitura** (EEPROM estranha). Esperado: não gravar, `{"error":"io"}`. Teste: Task 1 `decode_stage_rejects_bad_check`.
 3. **Índice de estágio ativo fora de 0–7 ou par inválido.** Esperado: `io`, nada gravado. Teste: Task 2 `dpi_bad_active_stage_is_io`.
-4. **Clique duplo rápido no popup** (dois `vxe dpi` simultâneos). Esperado: o widget ignora cliques enquanto um `vxe dpi` está em andamento. Teste: Task 3 `test_dpi_busy_blocks`.
+4. **Enter repetido rápido no campo** (dois `vxe dpi` simultâneos) ou texto não numérico. Esperado: o widget ignora Enter enquanto um `vxe dpi` está em andamento e não chama a CLI com lixo. Teste: Task 3 `test_dpi_busy_blocks`.
 5. **Mouse no cabo.** Mesmo caminho de gravação; deve funcionar igual. Verificação de hardware na Task 2.
 
 ---
@@ -75,15 +75,15 @@
 
 **Interfaces:**
 - `parse()` passa a levar `dpi` (número ou `undefined`); `merge()` mantém `dpi` no estado `asleep`.
-- `var DPI_PRESETS = [400, 800, 1200, 1600, 3200]`
-- `function dpiCommand(dpi) -> '"$HOME/.local/bin/vxe" dpi 1200'` (só inteiros de `DPI_PRESETS`; senão `""`)
+- `function normalizeDpi(text) -> number|null`: inteiro (aceita espaços), arredonda ao múltiplo de 50, limita a 50–10 000; vazio/não numérico → `null`
+- `function dpiCommand(dpi) -> '"$HOME/.local/bin/vxe" dpi 1200'` (só para resultado de `normalizeDpi`; senão `""`)
 - `main.qml`: `property bool dpiBusy`; `function setDpi(n)` ignora se `dpiBusy`; usa a mesma `DataSource`, distinguindo a fonte pelo comando; a resposta atualiza `view` como no status.
-- `Popup.qml`: seção “DPI” (rótulo pequeno em caixa alta) + seletor segmentado do mockup B com os 5 valores; ativo na cor de acento; desabilitado (opaco) quando `!hasLevel` ou `dpiBusy`. Erro `write_failed` → tooltip/subtítulo “Não foi possível mudar o DPI”.
+- `Popup.qml`: seção “DPI” (rótulo pequeno em caixa alta) + `PlasmaComponents.TextField` (largura ~6 caracteres, algarismos tabulares, `inputMethodHints: Qt.ImhDigitsOnly`) com o DPI atual; Enter → `normalizeDpi` → `setDpi`; desabilitado quando `!hasLevel` ou `dpiBusy`. Erro `write_failed` → tooltip/subtítulo “Não foi possível mudar o DPI”.
 
-- [ ] **Step 1: Testes que falham:** `test_parse_dpi`; `test_merge_asleep_keeps_dpi`; `test_dpi_command` (1200 → string exata; 1000 e `"1;rm"` → `""`); `test_dpi_busy_blocks` (função pura `canSetDpi(view, busy)` → false quando busy ou sem nível); `test_tooltip_write_failed`.
+- [ ] **Step 1: Testes que falham:** `test_parse_dpi`; `test_merge_asleep_keeps_dpi`; `test_normalize_dpi` ("1200"→1200, " 1234 "→1250, "1225"→1250, "20"→50, "99999"→10000, ""/"abc"/"1;rm"→null); `test_dpi_command` (1200 → string exata; null → `""`); `test_dpi_busy_blocks` (função pura `canSetDpi(view, busy)` → false quando busy ou sem nível); `test_tooltip_write_failed`.
 - [ ] **Step 2:** `qmltestrunner` → FAIL.
 - [ ] **Step 3:** Implementar logic.js.
 - [ ] **Step 4:** `qmltestrunner` → PASS.
 - [ ] **Step 5:** Implementar Popup/main; renderizar offscreen (como na fase 1) e conferir com o mockup B.
-- [ ] **Step 6: Ponta a ponta (usuário):** `./install.sh`, reiniciar plasmashell, abrir popup → 1200 destacado; clicar 800 → mouse muda, 800 destacado; voltar a 1200.
-- [ ] **Step 7:** Commit `feat(widget): DPI selector in popup`.
+- [ ] **Step 6: Ponta a ponta (usuário):** `./install.sh`, reiniciar plasmashell, abrir popup → campo mostra 1200; digitar 800 + Enter → mouse muda, campo mostra 800; voltar a 1200.
+- [ ] **Step 7:** Commit `feat(widget): DPI field in popup`.
