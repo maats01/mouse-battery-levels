@@ -90,12 +90,6 @@ function tooltip(v) {
     return "Erro ao ler o mouse"
 }
 
-// A sleeping mouse is shown exactly like an awake one (user's call).
-function connectionText(v) {
-    if (!hasLevel(v)) return "desconectado"
-    if (v.mode === "wired") return v.charging ? "cabo · carregando" : "cabo"
-    return "2.4 GHz · conectado"
-}
 
 function stateText(v) {
     if (!hasLevel(v)) return ""
