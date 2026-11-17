@@ -28,6 +28,10 @@ Por que precisa existir: o kernel não expõe a bateria desse mouse. O driver `h
 
 - **Fase 1 — bateria:** CLI `vxe status` + widget com ícone e popup (sem a seção de DPI, ou com ela oculta). Entregue assim que a leitura de bateria funcionar, mesmo que o DPI ainda não.
 - **Fase 2 — DPI:** troca de DPI no popup, quando o protocolo para isso estiver confirmado.
+  **Decidido em 2026-11-17 (usuário):** não existe DPI “direto” no protocolo; o app
+  **regrava o valor do estágio ativo** com o DPI escolhido (o valor substitui o daquele
+  estágio). Trocar de estágio continua sendo só pelo botão do mouse. Antes da primeira
+  gravação a CLI salva uma cópia dos estágios; toda gravação é confirmada por leitura.
 - Uso pessoal, uma máquina; sem empacotamento para distribuição (chamada do Claude).
 
 ## Não-objetivos

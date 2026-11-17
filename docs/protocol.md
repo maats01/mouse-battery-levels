@@ -66,12 +66,25 @@ Conclusão: consultar `0x03` não envolve o mouse; a CLI só manda `0x04` quando
 diz que ele está acordado, então **nunca acorda o mouse**. Intervalo do widget:
 `REFRESH_MS = 60000`.
 
-## DPI (fase 2 — só leitura feita)
+## DPI (fase 2)
 
-- `0x0000` (pares valor/check): polling `01` = 1000 Hz, 4 estágios, estágio ativo `1`
-  (base 0).
-- `0x000c`: registros de 4 bytes `x y modo check`, codificação step50
-  (`(byte + 1) × 50`): 950 / 1450 / 1900 / 3800 DPI.
-- Escrita (`0x07`) no endereço do estágio ativo é o caminho provável para “trocar de
-  estágio”; **não testado**. O atk-control também documenta um commit por troca de
-  perfil para persistir. Decidir na fase 2, perguntando ao usuário antes de gravar.
+Não existe comando de “DPI atual” volátil: o DPI só existe nos registros de estágio da
+EEPROM. Leitura `0x08` / escrita `0x07` (frame `08 <cmd> 00 <addr_hi> <addr_lo> <len>
+<data…> <ck>`; resposta de leitura traz os dados a partir de `[6]`; a escrita é confirmada
+pelo eco do próprio request em ~80 ms).
+
+- `0x0000` (pares valor/`0x55-valor`): polling `01` = 1000 Hz; `0x0002` = 4 estágios;
+  `0x0004` = estágio ativo `1` (base 0).
+- `0x000c + 4·n`: estágio n como `[x, y, ex, 0x55-(x+y+ex)]`.
+- Codificação (PAW3395SE, conforme OpenVXE, verificada em hardware): `x`/`y` são índice
+  numa tabela — DPI de 50 a 10 000 em passos de 50 mapeiam para os códigos 1–235, pulando
+  7, 13, 20, 26, 33, 40, 46, 53, 60, 66, 73, 80, 86, 93, 100, 106, 113, 120, 126, 133,
+  140, 146, 153, 160, 166, 173, 180, 186, 193, 200, 206, 213, 220, 226, 233. `ex = 0`
+  até 10 000.
+- Lido no mouse do usuário: `12 12 00 31`, `1c 1c 00 1d`, `25 25 00 0b`, `4b 4b 00 bf` =
+  **800 / 1200 / 1600 / 3200**, estágio ativo 1200 — **confirmado pelo usuário**. (A
+  leitura “step50” 950/1450/1900/3800 anotada antes estava errada.)
+
+Fixtures de leitura:
+- `0x0000`: `08 08 00 00 00 0a 01 54 04 51 01 54 00 55 00 55 92`
+- `0x000c`: `08 08 00 00 0c 0a 12 12 00 31 1c 1c 00 1d 25 25 3b`
