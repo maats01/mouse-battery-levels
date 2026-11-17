@@ -44,9 +44,11 @@ PlasmoidItem {
             const cur = L.parse(data["stdout"])
             if (source !== root.command) {
                 // Result of `vxe dpi N`.
-                root.dpiBusy = false
-                root.dpiMessage = L.dpiResultMessage(cur)
+                // Update the view before clearing busy: the popup re-syncs its
+                // DPI field when busy goes false.
                 if (cur.state === "ok") root.view = L.merge(root.view, cur, root.now)
+                root.dpiMessage = L.dpiResultMessage(cur)
+                root.dpiBusy = false
                 return
             }
             root.view = L.merge(root.view, cur, root.now)
