@@ -39,7 +39,7 @@ checksum confere.
 
 | cmd | request (17 bytes) | resposta |
 |---|---|---|
-| `0x03` receptor online | `08 03 00…00 4a` | `[5]` = `1` se o mouse está ligado ao receptor |
+| `0x03` receptor online | `08 03 00…00 4a` | `[5]` = len (1), `[6]` = `1` mouse acordado, `0` dormindo/desligado. Respondido pelo próprio receptor (~3 ms) |
 | `0x04` bateria | `08 04 00…00 49` | `[5]` = len, `[6]` = %, `[7]` = carregando (0/1), `[8..9]` = mV big-endian (fora do `len`; informativo) |
 
 Exemplos reais (fixtures em `cli/tests/fixtures/`):
@@ -47,18 +47,24 @@ Exemplos reais (fixtures em `cli/tests/fixtures/`):
 - sem fio, 30%, descarregando: `08 04 00 00 00 02 1e 00 0e 04 00 00 00 00 00 00 17`
 - cabo, 50%, carregando: `08 04 00 00 00 02 32 01 0e 98 00 00 00 00 00 00 6e`
 - receptor online: `08 03 00 00 00 01 01 00 00 00 00 00 00 00 00 00 48`
+- receptor, mouse dormindo: `08 03 00 00 00 01 00 00 00 00 00 00 00 00 00 00 49`
 
 Tempo de resposta: ~13 ms sem fio, ~4 ms no cabo.
 
 Mouse ausente / desligado: sem resposta ao `0x04` dentro do timeout, ou `0x03` com
-`[5] = 0`. A CLI faz `0x03` antes do `0x04` no caminho sem fio e não pergunta a bateria
+`[6] = 0`. A CLI faz `0x03` antes do `0x04` no caminho sem fio e não pergunta a bateria
 se o mouse estiver offline.
 
 ## Repouso
 
 Registro de repouso (`0x00a9`, par 3): `3` × 10 s = 30 s.
-Resultado do teste de “a consulta acorda o mouse?”: ver seção abaixo (preenchida após o
-teste sem tocar no mouse).
+Teste (mouse parado 75 s, sem nenhuma consulta no meio): `0x03` respondeu `[6] = 0`
+em 3 ms (o receptor sabe que o mouse dorme) e `0x04` deu timeout duas vezes. Enquanto o
+mouse está em uso, `0x03` responde `1`.
+
+Conclusão: consultar `0x03` não envolve o mouse; a CLI só manda `0x04` quando `0x03`
+diz que ele está acordado, então **nunca acorda o mouse**. Intervalo do widget:
+`REFRESH_MS = 60000`.
 
 ## DPI (fase 2 — só leitura feita)
 
