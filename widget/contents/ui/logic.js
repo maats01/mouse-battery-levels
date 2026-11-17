@@ -86,22 +86,22 @@ function label(v) {
 function tooltip(v) {
     switch (v.state) {
     case "ok":
-        return "VXE R1 — " + v.battery + "%" + (v.charging ? " · carregando" : "")
+        return "VXE R1 — " + v.battery + "%" + (v.charging ? " · charging" : "")
     case "asleep":
         return "VXE R1 — " + v.battery + "%"
     case "disconnected":
-        return "Mouse dormindo ou desligado"
+        return "Mouse asleep or off"
     }
-    if (v.error === "no_receiver") return "Receptor não encontrado"
-    if (v.error === "permission") return "Sem permissão — rode install.sh"
-    if (v.error === "write_failed") return "Não foi possível mudar o DPI"
-    return "Erro ao ler o mouse"
+    if (v.error === "no_receiver") return "Receiver not found"
+    if (v.error === "permission") return "No permission — run install.sh"
+    if (v.error === "write_failed") return "Couldn't change the DPI"
+    return "Couldn't read the mouse"
 }
 
 
 
 function connectionText(v) {
-    return v.mode === "wired" ? "cabo" : "2.4 GHz"
+    return v.mode === "wired" ? "Wired" : "2.4 GHz"
 }
 
 // After an error (e.g. cable moving between receiver and mouse) retry soon.
@@ -132,7 +132,7 @@ function canSetDpi(v, busy) {
 // Message under the DPI field after a `vxe dpi` run ("" on success).
 function dpiResultMessage(cur) {
     if (cur.state === "ok") return ""
-    if (cur.state === "disconnected") return "Mexa o mouse e tente de novo"
+    if (cur.state === "disconnected") return "Move the mouse and try again"
     return tooltip(cur)
 }
 

@@ -3,7 +3,7 @@
     "KPlugin": {
         "Authors": [{ "Name": "mats" }],
         "Category": "System Information",
-        "Description": "Bateria do mouse VXE R1",
+        "Description": "Battery and DPI for the VXE R1 mouse",
         "Icon": "input-mouse",
         "Id": "com.github.mats.vxe-r1",
         "License": "MIT",

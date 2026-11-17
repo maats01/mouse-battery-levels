@@ -125,7 +125,7 @@ Item {
             PlasmaComponents.Label {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignRight
-                text: popup.busy ? "aplicando…" : popup.message
+                text: popup.busy ? "applying…" : popup.message
                 color: popup.busy ? popup.dim : L.RED
                 font: Kirigami.Theme.smallFont
                 elide: Text.ElideRight

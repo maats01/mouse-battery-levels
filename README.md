@@ -1,24 +1,24 @@
 # mouse-battery-levels
 
-Widget minimalista para o **KDE Plasma 6** que mostra a bateria do mouse **VXE R1 S NK** na barra e permite trocar o DPI. Por trás dele há um utilitário de linha de comando bem pequeno, `vxe`, em Rust e sem dependências.
+A minimal **KDE Plasma 6** widget that shows the battery level of the **VXE R1 S NK** mouse in your panel and lets you change its DPI. It is backed by `vxe`, a tiny Rust command-line tool with no dependencies.
 
-- **Ícone na barra:** um mouse que vai sendo "preenchido" conforme o nível, com a porcentagem ao lado. Fica verde a partir de 40%, amarelo de 15% a 39% e vermelho abaixo de 15%. Enquanto carrega, aparece um raio pequeno.
-- **Popup ao clicar:** mostra a bateria, a conexão (2.4 GHz ou cabo) e um slider de DPI. Clicando no número do DPI, dá para digitar um valor.
-- **Leve:** nenhum processo fica rodando em segundo plano. O widget chama `vxe status` uma vez por minuto, e cada leitura leva uns 20 ms.
-- **Não acorda o mouse:** primeiro o app pergunta ao receptor se o mouse está acordado, e só pede a bateria nesse caso. Enquanto o mouse dorme, o widget mostra a última leitura.
+- **Panel icon:** a mouse outline that fills up with the battery level, with the percentage next to it. It is green at 40% and above, yellow from 15% to 39%, and red below 15%. A small bolt appears while it charges.
+- **Popup:** opens when you click the icon. It shows the battery, the connection (2.4 GHz or wired) and a DPI slider. Click the DPI number to type a value.
+- **Lightweight:** nothing keeps running in the background. The widget runs `vxe status` once a minute, and each read takes about 20 ms.
+- **Never wakes the mouse:** the tool first asks the receiver whether the mouse is awake, and only then asks for the battery. While the mouse sleeps, the widget keeps showing the last reading.
 
-## Por que existe
+## Why
 
-O kernel não expõe a bateria desse mouse em `/sys/class/power_supply`, então o UPower e o indicador de bateria do Plasma não a mostram. O driver `hid-kysona` só reconhece outros receptores. Este projeto fala direto com o receptor pelo protocolo HID de configuração da Compx/ATK, que está documentado em [`docs/protocol.md`](docs/protocol.md).
+The kernel doesn't expose this mouse's battery under `/sys/class/power_supply`, so UPower and Plasma's battery applet can't show it. The in-kernel `hid-kysona` driver only matches other receivers. This project talks to the receiver directly over the Compx/ATK HID configuration protocol, which is documented in [`docs/protocol.md`](docs/protocol.md) (in Portuguese).
 
-## Requisitos
+## Requirements
 
-- KDE Plasma 6 (testado no 6.8, Wayland)
-- Rust (`cargo`) para compilar a CLI
-- `kpackagetool6`, que já vem com o Plasma
-- `sudo` uma única vez, para instalar a regra udev
+- KDE Plasma 6 (tested on 6.8, Wayland)
+- Rust (`cargo`) to build the CLI
+- `kpackagetool6`, which ships with Plasma
+- `sudo` once, to install the udev rule
 
-## Instalação
+## Install
 
 ```bash
 git clone https://github.com/maats01/mouse-battery-levels.git
@@ -26,76 +26,89 @@ cd mouse-battery-levels
 ./install.sh
 ```
 
-O `install.sh`:
+`install.sh` does three things:
 
-1. compila `vxe` e o copia para `~/.local/bin/vxe`;
-2. instala ou atualiza o widget **"VXE R1"** no seu usuário;
-3. instala `/etc/udev/rules.d/70-vxe-r1.rules`, que dá ao usuário logado acesso ao mouse sem `sudo`. Só pede senha quando a regra está ausente ou desatualizada.
+1. builds `vxe` and copies it to `~/.local/bin/vxe`;
+2. installs or updates the **"VXE R1"** widget for your user;
+3. installs `/etc/udev/rules.d/70-vxe-r1.rules`, which lets the logged-in user access the mouse without `sudo`. It only asks for your password when the rule is missing or out of date.
 
-Depois disso, clique com o botão direito no painel, escolha **Adicionar widgets…**, procure **VXE R1** e arraste o widget para perto da bandeja. Ele precisa ficar no painel, e não dentro da bandeja, para o ícone ter largura suficiente para o número.
+Then right-click your panel, choose **Add Widgets…**, search for **VXE R1** and drag it next to the system tray. Put it on the panel itself rather than inside the tray: tray icons are forced square, which leaves no room for the percentage.
 
-Se você atualizar o widget e não vir mudança, reinicie o painel:
+If an update doesn't show up, restart the panel:
 
 ```bash
 systemctl --user restart plasma-plasmashell
 ```
 
-## Uso
+## Usage
 
-### No widget
+### Widget
 
-- **Bateria:** fica no ícone e no popup. Se nunca houve leitura ou o receptor não está plugado, aparece `––`.
-- **DPI pelo slider:** arraste entre 400 e 3200, em passos de 50. O valor só é gravado quando você solta.
-- **DPI digitado:** clique no número e digite qualquer valor entre 50 e 10 000. **Enter** aplica e **Esc** cancela. Valores que não são múltiplos de 50 são arredondados.
-- Os pontinhos no slider marcam os outros estágios de DPI configurados no mouse.
+- **Battery:** shown on the icon and in the popup. `––` means there has been no reading yet, or neither the receiver nor the cable is plugged in.
+- **DPI slider:** drag between 400 and 3200 in steps of 50. The value is written only when you release the slider.
+- **Typed DPI:** click the number and type any value from 50 to 10 000. **Enter** applies it and **Esc** cancels. Values that aren't a multiple of 50 are rounded.
+- **Dots on the slider:** they mark the mouse's other DPI stages.
 
-### Na linha de comando
+### Command line
 
 ```bash
 vxe status
 # {"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":1200,"stages":[800,1200,1600,3200]}
 
 vxe dpi 1600
-# grava 1600 no estágio ativo e imprime o status atualizado
+# writes 1600 to the active stage and prints the updated status
 ```
 
-| Saída | Significado |
+| Output | Meaning |
 |---|---|
-| `{"connected":false}` | mouse dormindo ou desligado; nada é enviado a ele |
-| `{"error":"no_receiver"}` | receptor e cabo ausentes |
-| `{"error":"permission"}` | sem acesso ao hidraw; rode `./install.sh` |
-| `{"error":"write_failed"}` | o mouse não confirmou a gravação do DPI |
-| `{"error":"io"}` | resposta inválida, ou memória do mouse com conteúdo inesperado |
+| `{"connected":false}` | mouse asleep, off or unreachable; nothing was sent to it |
+| `{"error":"no_receiver"}` | neither the receiver nor the cable is plugged in |
+| `{"error":"permission"}` | no access to the hidraw device; run `./install.sh` |
+| `{"error":"write_failed"}` | the mouse didn't confirm the DPI write |
+| `{"error":"io"}` | invalid reply, or unexpected content in the mouse's memory |
 
-Os códigos de saída são `0` para sucesso ou mouse dormindo, `1` para erro e `2` para argumento inválido.
+Exit codes are `0` for success or a sleeping mouse, `1` for an error and `2` for an invalid argument.
 
-## Como funciona a troca de DPI
+## How the DPI change works
 
-O protocolo **não tem um comando de "DPI atual"**: o DPI só existe nos estágios gravados na memória do mouse, os mesmos que o botão embaixo dele alterna. Por isso, `vxe dpi N` **regrava o valor do estágio ativo**:
+The protocol has **no "current DPI" command**. DPI only exists as the stages stored in the mouse's memory, the same ones the button under the mouse cycles through. So `vxe dpi N` **rewrites the value of the active stage**:
 
-- se o estágio 2 era 1200 e você escolhe 1000, o estágio 2 passa a ser 1000;
-- o botão de DPI continua alternando entre os estágios normalmente;
-- o valor sobrevive a desligar e ligar o mouse.
+- if stage 2 was 1200 and you pick 1000, stage 2 becomes 1000;
+- the DPI button keeps cycling through the stages as before;
+- the new value survives switching the mouse off and on.
 
-Por segurança:
+Safety measures:
 
-- **Backup:** antes da primeira gravação, os estágios originais são salvos em `~/.local/state/vxe/backup.hex`. Esse arquivo nunca é sobrescrito.
-- **Validação:** a CLI só grava se o cabeçalho e todos os registros de estágio estiverem íntegros. Ela grava apenas os 4 bytes do estágio ativo.
-- **Confirmação:** toda gravação precisa ser confirmada pelo mouse e é lida de volta. Se não bater, o resultado é `write_failed`.
-- **Mouse dormindo:** com o mouse dormindo, nada é gravado.
+- **Backup:** before the first write, the original stages are saved to `~/.local/state/vxe/backup.hex`. This file is never overwritten.
+- **Validation:** `vxe` refuses to write unless the stage header and every stage record are valid, and it writes only the 4 bytes of the active stage.
+- **Confirmation:** every write must be acknowledged by the mouse and is read back. A mismatch is reported as `write_failed`.
+- **Sleeping mouse:** nothing is written while the mouse sleeps.
 
-## Limitações
+## Limitations
 
-- **Só testado com um mouse:** o VXE R1 S NK (CID/MID `2,117`, sensor PAW3395SE), pelo receptor NearLink `373b:10c9` e pelo cabo (`373b:121f`). Outros receptores e mouses da família Compx/ATK provavelmente usam o mesmo protocolo, mas não são reconhecidos. Os IDs ficam em `cli/src/device.rs` e `udev/70-vxe-r1.rules`.
-- **Codificação de DPI:** o app usa a tabela do PAW3395SE. Mouses com outro sensor usam outra codificação, e gravar com a tabela errada resulta num DPI diferente do pedido.
-- **Só KDE Plasma 6:** o widget é um plasmoid QML. A CLI funciona em qualquer Linux.
-- **Só Linux x86_64 e aarch64:** a chamada `poll()` está declarada à mão para essas arquiteturas.
-- **Leitura que pode estar desatualizada:** o widget não avisa quando a leitura está velha. Se o mouse descarregar até desligar, o ícone continua mostrando a última porcentagem lida.
-- **Faixa do slider:** vai de 400 a 3200, cobrindo estágios comuns. Valores de 50 a 10 000 podem ser digitados.
-- **Interface só em português.**
-- **Projeto não oficial,** sem relação com VXE, ATK ou Compx. A gravação de DPI foi testada no hardware do autor; use por sua conta.
+### The battery reading can be out of date, with no warning
 
-## Desinstalar
+This mouse goes to sleep after 30 seconds without movement. While it sleeps, the receiver reports it as offline, and `vxe` deliberately doesn't ask it for the battery, so that it never wakes the mouse. Instead, the widget keeps showing the **last level it read while the mouse was awake**, with the same icon and colours as a fresh reading. This is on purpose: otherwise the icon would show `––` every time you stop moving the mouse for half a minute, for example while typing.
+
+The downside is that `vxe` can't tell a sleeping mouse from one that is switched off, out of range, or completely flat. All of these show up as `{"connected":false}`. So:
+
+- **If the battery runs out,** the icon keeps showing the last percentage it saw (say, 3% in red) until the mouse is charged and used again. It never switches to an "empty" or "off" state.
+- **If you switch the mouse off or take it elsewhere,** the icon still shows its last level.
+- **There is no "last updated" time.** Nothing in the icon or popup tells you how old the reading is.
+- **After a restart** of the panel or a new login, the widget has no previous reading, so it shows `––` until you move the mouse and the next check runs (up to one minute).
+
+In practice, the level only drops while you are using the mouse, and that is exactly when the widget gets fresh readings. By the time the mouse dies, the icon has been red (below 15%) for a while.
+
+### Other limitations
+
+- **Tested with one mouse only:** the VXE R1 S NK (CID/MID `2,117`, PAW3395SE sensor), through its NearLink receiver (`373b:10c9`) and over the cable (`373b:121f`). Other Compx/ATK receivers and mice probably speak the same protocol but aren't recognised. The IDs live in `cli/src/device.rs` and `udev/70-vxe-r1.rules`.
+- **DPI encoding:** the PAW3395SE code table is used. Mice with a different sensor encode DPI differently, so writing with the wrong table sets a different DPI from the one you asked for.
+- **KDE Plasma 6 only:** the widget is a QML plasmoid. The `vxe` CLI works on any Linux.
+- **x86_64 and aarch64 only:** the `poll()` system call is declared by hand for these architectures.
+- **Slider range:** the slider covers 400–3200, which fits typical stages. Values from 50 to 10 000 can still be typed.
+- **Unofficial:** this project is not affiliated with VXE, ATK or Compx. DPI writing was tested on the author's hardware; use it at your own risk.
+
+## Uninstall
 
 ```bash
 kpackagetool6 -t Plasma/Applet -r com.github.mats.vxe-r1
@@ -103,25 +116,25 @@ rm ~/.local/bin/vxe
 sudo rm /etc/udev/rules.d/70-vxe-r1.rules && sudo udevadm control --reload
 ```
 
-## Desenvolvimento
+## Development
 
 ```bash
 cargo test --manifest-path cli/Cargo.toml                                  # CLI
-/usr/lib/qt6/bin/qmltestrunner -platform offscreen -input widget/tests     # lógica do widget
+/usr/lib/qt6/bin/qmltestrunner -platform offscreen -input widget/tests     # widget logic
 ```
 
-A estrutura é esta:
+Layout:
 
-- `cli/`: o utilitário `vxe`;
-- `widget/`: o plasmoid;
-- `docs/protocol.md`: o protocolo levantado no hardware;
-- `docs/superpowers/`: o design e os planos;
-- `spike/probe.py`: o script de sondagem usado para descobrir o protocolo.
+- `cli/`: the `vxe` tool;
+- `widget/`: the plasmoid;
+- `docs/protocol.md`: the protocol as observed on hardware;
+- `docs/superpowers/`: design and plans (in Portuguese);
+- `spike/probe.py`: the probe script used to discover the protocol.
 
-## Créditos
+## Credits
 
-O protocolo foi entendido a partir das notas públicas do [atk-control](https://github.com/NasirA1991/atk-control) e do [OpenVXE](https://github.com/FrancescoLFM/OpenVXE), e depois verificado no hardware.
+The protocol was worked out from the public notes of [atk-control](https://github.com/NasirA1991/atk-control) and [OpenVXE](https://github.com/FrancescoLFM/OpenVXE), then verified on hardware.
 
-## Licença
+## License
 
 [MIT](LICENSE).

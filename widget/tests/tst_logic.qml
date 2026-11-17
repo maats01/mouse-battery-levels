@@ -108,25 +108,25 @@ TestCase {
     function test_tooltip() {
         compare(L.tooltip({state: "ok", battery: 82, charging: false}), "VXE R1 — 82%")
         compare(L.tooltip({state: "asleep", battery: 82, charging: false}), "VXE R1 — 82%")
-        compare(L.tooltip({state: "disconnected"}), "Mouse dormindo ou desligado")
-        compare(L.tooltip({state: "error", error: "no_receiver"}), "Receptor não encontrado")
-        compare(L.tooltip({state: "error", error: "io"}), "Erro ao ler o mouse")
-        compare(L.tooltip({state: "error", error: "cli"}), "Erro ao ler o mouse")
+        compare(L.tooltip({state: "disconnected"}), "Mouse asleep or off")
+        compare(L.tooltip({state: "error", error: "no_receiver"}), "Receiver not found")
+        compare(L.tooltip({state: "error", error: "io"}), "Couldn't read the mouse")
+        compare(L.tooltip({state: "error", error: "cli"}), "Couldn't read the mouse")
     }
 
     function test_tooltip_permission() {
-        compare(L.tooltip({state: "error", error: "permission"}), "Sem permissão — rode install.sh")
+        compare(L.tooltip({state: "error", error: "permission"}), "No permission — run install.sh")
     }
 
     function test_tooltip_charging() {
-        compare(L.tooltip({state: "ok", battery: 50, charging: true}), "VXE R1 — 50% · carregando")
+        compare(L.tooltip({state: "ok", battery: 50, charging: true}), "VXE R1 — 50% · charging")
     }
 
     function test_connection_text() {
         compare(L.connectionText({state: "ok", mode: "wireless", charging: false}), "2.4 GHz")
         compare(L.connectionText({state: "asleep", mode: "wireless", charging: false}), "2.4 GHz")
-        compare(L.connectionText({state: "ok", mode: "wired", charging: true}), "cabo")
-        compare(L.connectionText({state: "ok", mode: "wired", charging: false}), "cabo")
+        compare(L.connectionText({state: "ok", mode: "wired", charging: true}), "Wired")
+        compare(L.connectionText({state: "ok", mode: "wired", charging: false}), "Wired")
     }
 
     function test_parse_dpi() {
@@ -169,13 +169,13 @@ TestCase {
 
     function test_dpi_result_message() {
         compare(L.dpiResultMessage(L.parse('{"connected":true,"mode":"wireless","battery":45,"charging":false,"dpi":800}')), "")
-        compare(L.dpiResultMessage(L.parse('{"connected":false}')), "Mexa o mouse e tente de novo")
-        compare(L.dpiResultMessage(L.parse('{"error":"write_failed"}')), "Não foi possível mudar o DPI")
-        compare(L.dpiResultMessage(L.parse("")), "Erro ao ler o mouse")
+        compare(L.dpiResultMessage(L.parse('{"connected":false}')), "Move the mouse and try again")
+        compare(L.dpiResultMessage(L.parse('{"error":"write_failed"}')), "Couldn't change the DPI")
+        compare(L.dpiResultMessage(L.parse("")), "Couldn't read the mouse")
     }
 
     function test_tooltip_write_failed() {
-        compare(L.tooltip({state: "error", error: "write_failed"}), "Não foi possível mudar o DPI")
+        compare(L.tooltip({state: "error", error: "write_failed"}), "Couldn't change the DPI")
     }
 
     function test_parse_stages() {

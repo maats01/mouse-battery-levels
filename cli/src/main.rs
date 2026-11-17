@@ -125,7 +125,7 @@ fn execute(cmd: Cmd) -> Status {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(cmd) = parse_args(&args) else {
-        eprintln!("uso: vxe status | vxe dpi <50–10000, múltiplo de 50>");
+        eprintln!("usage: vxe status | vxe dpi <50-10000, multiple of 50>");
         std::process::exit(2);
     };
     let s = execute(cmd);
